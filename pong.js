@@ -56,6 +56,72 @@ document.addEventListener('keyup', e => {
   if (e.key === 'ArrowDown') state.right.down = false;
 });
 
+// Touch controls
+function clientToCanvas(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: (clientX - rect.left) * (W / rect.width),
+    y: (clientY - rect.top)  * (H / rect.height),
+  };
+}
+
+const touchState = { left: null, right: null };
+
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+
+  // Two-finger tap = pause
+  if (e.touches.length === 2 && state.running) {
+    state.running = false;
+    return;
+  }
+
+  // Tap to start / restart
+  if (!state.running) {
+    if (state.over) {
+      state.left.score  = 0;
+      state.right.score = 0;
+      state.left.y  = H / 2 - PADDLE_H / 2;
+      state.right.y = H / 2 - PADDLE_H / 2;
+      state.ball = resetBall();
+      state.over = false;
+    }
+    state.running = true;
+  }
+
+  for (const touch of e.changedTouches) {
+    const pos = clientToCanvas(touch.clientX, touch.clientY);
+    if (pos.x < W / 2 && touchState.left === null) {
+      touchState.left = touch.identifier;
+      state.left.y = Math.max(0, Math.min(H - PADDLE_H, pos.y - PADDLE_H / 2));
+    } else if (pos.x >= W / 2 && touchState.right === null) {
+      touchState.right = touch.identifier;
+      state.right.y = Math.max(0, Math.min(H - PADDLE_H, pos.y - PADDLE_H / 2));
+    }
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  for (const touch of e.changedTouches) {
+    const pos = clientToCanvas(touch.clientX, touch.clientY);
+    if (touch.identifier === touchState.left) {
+      state.left.y = Math.max(0, Math.min(H - PADDLE_H, pos.y - PADDLE_H / 2));
+    } else if (touch.identifier === touchState.right) {
+      state.right.y = Math.max(0, Math.min(H - PADDLE_H, pos.y - PADDLE_H / 2));
+    }
+  }
+}, { passive: false });
+
+function handleTouchEnd(e) {
+  for (const touch of e.changedTouches) {
+    if (touch.identifier === touchState.left)  touchState.left  = null;
+    if (touch.identifier === touchState.right) touchState.right = null;
+  }
+}
+canvas.addEventListener('touchend',    handleTouchEnd);
+canvas.addEventListener('touchcancel', handleTouchEnd);
+
 function movePaddle(paddle) {
   if (paddle.up)   paddle.y -= PADDLE_SPEED;
   if (paddle.down) paddle.y += PADDLE_SPEED;
@@ -160,10 +226,10 @@ function draw() {
   if (state.over) {
     const winner = state.left.score >= WINNING_SCORE ? 'Left Player' : 'Right Player';
     drawText(`${winner} Wins!`, W / 2, H / 2 - 20, 40);
-    drawText('Press Enter to play again', W / 2, H / 2 + 30, 18);
+    drawText('Tap to play again', W / 2, H / 2 + 30, 18);
   } else if (!state.running) {
     drawText('PONG', W / 2, H / 2 - 20, 52);
-    drawText('Press Enter to start', W / 2, H / 2 + 30, 18);
+    drawText('Tap to start', W / 2, H / 2 + 30, 18);
   }
 }
 
